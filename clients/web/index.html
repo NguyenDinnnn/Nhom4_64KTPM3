@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Đường đi của Robot trong nhà xưởng</title>
+<style>
+.grid { display: grid; gap: 2px; }
+.cell { width:40px; height:40px; text-align:center; line-height:40px; border:1px solid #ccc; font-weight:bold; }
+.robot { background-color: lightgreen; transition: background-color 0.2s; }
+.goal { background-color: gold; }
+.obstacle { background-color: red; }
+.waypoint { background-color: lightblue; }
+.visited { background-color: deepskyblue; }
+</style>
+</head>
+<body>
+<h2>RL Robot GridWorld</h2>
+<div class="grid" id="grid"></div>
+<div id="msg" style="color:blue;font-weight:bold"></div>
+<br>
+<button onclick="startAutoMove()">Auto Move</button>
+<button onclick="stopAll()">STOP</button>
+<button onclick="resetGrid()">Reset</button>
+<button onclick="toggleDebug()">Debug Mode</button>
+<div id="manualControls" style="margin-top:10px; display:none;">
+    <button onclick="manualMove('up')">Up</button>
+    <button onclick="manualMove('right')">Right</button>
+    <button onclick="manualMove('down')">Down</button>
+    <button onclick="manualMove('left')">Left</button>
+</div>
+
+<h3>Chạy thuật toán RL</h3>
+<button onclick="runAlgorithm('MC')">Run MC</button>
+<button onclick="runAlgorithm('Q-learning')">Run Q-learning</button>
+<button onclick="runAlgorithm('A2C')">Run A2C</button>
+<button onclick="runAStar()">Run A*</button>
+<div id="algoResult" style="margin-top:10px; font-weight:bold; color:green;"></div>
+
+<script>
+let gridSizeX=10, gridSizeY=8;
+let robotPos=[0,0], goal=[9,7], obstacles=[], waypoints=[], visitedWaypoints=[];
+let autoMoving=false, algoMoving=false;
+let intervalId=null;
+let debugMode=false;
+let currentAlgo=null;
+
+// ------------- Draw Grid ----------------
+function drawGridOnce(){
+    let grid=document.getElementById("grid");
+    grid.style.gridTemplateColumns=`repeat(${gridSizeX},40px)`;
+    grid.innerHTML="";
+    for(let y=0;y<gridSizeY;y++){
+        for(let x=0;x<gridSizeX;x++){
+            let cell=document.createElement("div");
+            cell.classList.add("cell");
+            cell.dataset.x=x; cell.dataset.y=y;
+            if(obstacles.some(o=>o[0]===x&&o[1]===y)) cell.classList.add("obstacle");
+            if(waypoints.some(w=>w[0]===x&&w[1]===y) && !visitedWaypoints.some(vw=>vw[0]===w[0] && vw[1]===w[1])) 
+                cell.classList.add("waypoint");
+            if(x===goal[0]&&y===goal[1]) cell.classList.add("goal");
+            grid.appendChild(cell);
+        }
+    }
+}
+
+// ------------- Update Robot ----------------
+function updateRobot(prevPos, newPos){
+    let grid=document.getElementById("grid");
+    let oldCell=grid.querySelector(`.cell[data-x='${prevPos[0]}'][data-y='${prevPos[1]}']`);
+    if(oldCell) oldCell.classList.remove("robot");
+    let newCell=grid.querySelector(`.cell[data-x='${newPos[0]}'][data-y='${newPos[1]}']`);
+    if(newCell) newCell.classList.add("robot");
+
+    waypoints.forEach(w=>{
+        if(w[0]===newPos[0] && w[1]===newPos[1]){
+            newCell.classList.remove("waypoint");
+            newCell.classList.add("visited");
+            if(!visitedWaypoints.some(vw=>vw[0]===w[0] && vw[1]===w[1])) visitedWaypoints.push([w[0],w[1]]);
+        }
+    });
+}
+
+// ------------- Auto Move ----------------
+async function autoStep(){
+    let prevPos=[...robotPos];
+    let resp=await fetch("http://127.0.0.1:8000/state");
+    let data=await resp.json();
+    robotPos=data.state; visitedWaypoints=data.visited_waypoints||[];
+    updateRobot(prevPos, robotPos);
+}
+
+function startAutoMove(){
+    if(autoMoving) return;
+    autoMoving=true; algoMoving=false;
+    intervalId=setInterval(autoStep,300);
+    document.getElementById("msg").innerText="Auto move bắt đầu";
+}
+
+// ------------- STOP ----------------
+function stopAll(){
+    autoMoving=false; algoMoving=false; currentAlgo=null;
+    if(intervalId) clearInterval(intervalId);
+    intervalId=null;
+    document.getElementById("msg").innerText="Đã dừng robot";
+}
+
+// ------------- Reset Grid ----------------
+async function resetGrid(){
+    stopAll();
+    let resp=await fetch("http://127.0.0.1:8000/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    let data=await resp.json();
+    robotPos=data.state; goal=data.map.goal; obstacles=data.map.obstacles; waypoints=data.map.waypoints||[];
+    visitedWaypoints=[];
+    gridSizeX=data.map.width; gridSizeY=data.map.height;
+    drawGridOnce();
+    updateRobot([0,0],robotPos);
+    document.getElementById("msg").innerText="";
+}
+
+// ------------- Manual Move ----------------
+async function manualMove(dir){
+    if(!debugMode) return;
+    let prevPos=[...robotPos];
+    let resp=await fetch("http://127.0.0.1:8000/step",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action_name:dir})});
+    let data=await resp.json();
+    if(!data.error){
+        robotPos=data.state; visitedWaypoints=data.visited_waypoints||[];
+        updateRobot(prevPos,robotPos);
+    }
+}
+function toggleDebug(){ debugMode=!debugMode; document.getElementById("manualControls").style.display=debugMode?"block":"none"; }
+
+// ------------- RL Algorithms ----------------
+async function runAlgorithm(algo){
+    stopAll(); algoMoving=true; currentAlgo=algo;
+    document.getElementById("algoResult").innerText=`Đang chạy ${algo}...`;
+
+    intervalId=setInterval(async()=>{
+        if(!algoMoving || !currentAlgo){ clearInterval(intervalId); return; }
+        try{
+            const resp=await fetch("http://127.0.0.1:8000/run_algorithm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({algorithm:currentAlgo})});
+            const data=await resp.json();
+            if(data.error){ document.getElementById("algoResult").innerText=`Lỗi: ${data.error}`; stopAll(); clearInterval(intervalId); return; }
+
+            let prevPos=[...robotPos];
+            robotPos=data.state; visitedWaypoints=data.visited_waypoints||[];
+            updateRobot(prevPos,robotPos);
+
+            let saveApi = "";
+            if(algo==="Q-learning") saveApi = "/save_qlearning";
+            else if(algo==="MC") saveApi = "/save_mc";
+            else if(algo==="A2C") saveApi = "/save_a2c";
+            if(saveApi) await fetch("http://127.0.0.1:8000"+saveApi, {method:"POST"});
+
+            document.getElementById("algoResult").innerHTML=`Thuật toán: ${data.algorithm}<br>
+                Reward: ${data.reward}<br>
+                Steps: ${data.steps}<br>
+                Waypoints đạt: ${data.visited_waypoints.length}/${waypoints.length}<br>
+                ${data.done? "Robot đã đến đích!" : ""}`;
+
+            if(data.done){ stopAll(); clearInterval(intervalId); }
+        }catch(e){ console.error(e); document.getElementById("algoResult").innerText="Có lỗi khi gọi thuật toán"; stopAll(); clearInterval(intervalId); }
+    },200);
+}
+
+// ------------- Run A* ----------------
+async function runAStar(){
+    stopAll();
+    document.getElementById("algoResult").innerText="Đang chạy A*...";
+    try{
+        const resp = await fetch("http://127.0.0.1:8000/run_a_star",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
+        const data = await resp.json();
+        if(data.error){ document.getElementById("algoResult").innerText=`Lỗi: ${data.error}`; return; }
+
+        let path = data.path;
+        for(let i=1;i<path.length;i++){
+            await new Promise(r=>setTimeout(r,200));
+            let prevPos = [...robotPos];
+            robotPos = path[i];
+            visitedWaypoints = data.visited_waypoints||[];
+            updateRobot(prevPos, robotPos);
+        }
+
+        document.getElementById("algoResult").innerHTML=`Thuật toán: ${data.algorithm}<br>
+            Reward: ${data.reward}<br>
+            Steps: ${data.steps}<br>
+            Waypoints đạt: ${data.visited_waypoints.length}/${waypoints.length}<br>
+            ${data.done? "Robot đã đến đích!" : ""}`;
+
+    }catch(e){ console.error(e); document.getElementById("algoResult").innerText="Có lỗi khi chạy A*"; }
+}
+
+resetGrid();
+</script>
+</body>
+</html>
