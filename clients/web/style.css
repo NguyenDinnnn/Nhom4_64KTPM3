@@ -508,3 +508,19 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+.main-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.row {
+  display: flex;
+  gap: 20px;
+}
+
+.row .card {
+  flex: 1;
+}

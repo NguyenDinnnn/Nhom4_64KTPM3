@@ -4,132 +4,157 @@
 <meta charset="utf-8">
 <title>ỨNG DỤNG HỌC TĂNG CƯỜNG TRONG VIỆC TỐI ƯU HÓA ĐƯỜNG ĐI CỦA ROBOT</title>
 <link rel="stylesheet" href="style.css">
+
+<!-- CSS nhỏ để sắp xếp 2 hàng theo yêu cầu (không sửa logic JS) -->
+<style>
+  /* Layout: 2 hàng - mỗi hàng 2 card ngang */
+  .main-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 18px;
+  }
+  .row {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .row .card {
+    flex: 1;
+    min-width: 0;
+  }
+  /* Giữ tương thích khi style.css có quy tắc khác */
+</style>
 </head>
 <body>
 <div class="main-container">
-    <div class="left-column">
-        <div class="card simulation-card">
-            <div class="card-header">
-                <span class="card-icon">🤖</span>
-                <span class="card-title">Môi Trường Mô Phỏng</span>
-                <span style="margin-left: auto; background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 10px; font-size: 12px;">Sẵn sàng</span>
-            </div>
-            
-            <div class="grid-container">
-                <div class="grid" id="grid"></div>
-                
-                <div class="legend">
-                    <div class="legend-item">
-                        <div class="legend-color robot">🤖</div>
-                        <span>Robot</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color goal"></div>
-                        <span>Mục tiêu</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color obstacle"></div>
-                        <span>Vật cản</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color waypoint"></div>
-                        <span>Điểm trung gian</span>
-                    </div>
-                </div>
-                
-                <div id="msg" class="status-message">Môi trường đã được reset</div>
-            </div>
-        </div>
-    </div>
 
-    <div class="right-column">
-        <div class="card combined-control-card">
-            <div class="combined-content">
-                <div class="control-section">
-                    <div class="section-header">
-                        <span class="card-icon">🎮</span>
-                        <span class="card-title">Điều Khiển Robot</span>
-                    </div>
-                    
-                    <div class="button-group">
-                        <button class="btn btn-start" onclick="startAutoMove()">▶ Auto Move</button>
-                        <button class="btn btn-stop" onclick="stopAll()">🛑 Stop</button>
-                    </div>
-                    
-                    <div class="button-group">
-                        <button class="btn btn-reset" onclick="resetGrid()">🔄 Reset</button>
-                        <button class="btn btn-debug" onclick="toggleDebug()">🔧 Debug</button>
-                    </div>
-                    
-                    <div id="manualControls" class="manual-controls" style="display:none;">
-                        <h4 style="text-align:center; margin-bottom:10px;">Điều khiển thủ công</h4>
-                        <div class="direction-buttons">
-                            <button class="btn btn-debug" onclick="manualMove('up')">↑</button>
-                            <button class="btn btn-debug" onclick="manualMove('right')">→</button>
-                            <button class="btn btn-debug" onclick="manualMove('down')">↓</button>
-                            <button class="btn btn-debug" onclick="manualMove('left')">←</button>
-                        </div>
-                    </div>
-                </div>
+  <!-- HÀNG 1: Môi trường (trái) + Điều khiển (phải) -->
+  <div class="row">
+    <div class="card simulation-card">
+      <div class="card-header">
+        <span class="card-icon">🤖</span>
+        <span class="card-title">Môi Trường Mô Phỏng</span>
+        <span style="margin-left: auto; background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 10px; font-size: 12px;">Sẵn sàng</span>
+      </div>
+      
+      <div class="grid-container">
+        <div class="grid" id="grid"></div>
+        
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-color robot">🤖</div>
+            <span>Robot</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color goal"></div>
+            <span>Mục tiêu</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color obstacle"></div>
+            <span>Vật cản</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color waypoint"></div>
+            <span>Điểm trung gian</span>
+          </div>
+        </div>
+        
+        <div id="msg" class="status-message">Môi trường đã được reset</div>
+      </div>
+    </div>
 
-                <div class="algorithm-section">
-                    <div class="section-header">
-                        <span class="card-icon">🧠</span>
-                        <span class="card-title">Thuật Toán Học Tăng Cường</span>
-                    </div>
-                    
-                    <div class="algorithm-buttons">
-                        <button class="btn-algorithm" onclick="runAlgorithm('MC')">Monte Carlo</button>
-                        <button class="btn-algorithm" onclick="runAlgorithm('Q-learning')">Q-Learning</button>
-                        <button class="btn-algorithm" onclick="runAlgorithm('A2C')">A2C</button>
-                        <button class="btn-algorithm" onclick="runAStar()">A*</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="card combined-control-card">
+      <div class="combined-content">
+        <div class="control-section">
+          <div class="section-header">
+            <span class="card-icon">🎮</span>
+            <span class="card-title">Điều Khiển Robot</span>
+          </div>
+          
+          <div class="button-group">
+            <button class="btn btn-start" onclick="startAutoMove()">▶ Auto Move</button>
+            <button class="btn btn-stop" onclick="stopAll()">🛑 Stop</button>
+          </div>
+          
+          <div class="button-group">
+            <button class="btn btn-reset" onclick="resetGrid()">🔄 Reset</button>
+            <button class="btn btn-debug" onclick="toggleDebug()">🔧 Debug</button>
+          </div>
+          
+          <div id="manualControls" class="manual-controls" style="display:none;">
+            <h4 style="text-align:center; margin-bottom:10px;">Điều khiển thủ công</h4>
+            <div class="direction-buttons">
+              <button class="btn btn-debug" onclick="manualMove('up')">↑</button>
+              <button class="btn btn-debug" onclick="manualMove('right')">→</button>
+              <button class="btn btn-debug" onclick="manualMove('down')">↓</button>
+              <button class="btn btn-debug" onclick="manualMove('left')">←</button>
+            </div>
+          </div>
+        </div>
 
-        <div class="card stats-card">
-            <div class="card-header">
-                <span class="card-icon">📊</span>
-                <span class="card-title">Thống Kê Hiệu Suất</span>
-            </div>
-            
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-label">THUẬT TOÁN</div>
-                    <div class="stat-value" id="current-algorithm">-</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">REWARD</div>
-                    <div class="stat-value" id="current-reward">-</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">STEP</div>
-                    <div class="stat-value" id="current-steps">-</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">WAYPOINTS</div>
-                    <div class="stat-value" id="current-waypoints">-</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">THỜI GIAN</div>
-                    <div class="stat-value" id="current-time">-</div>
-                </div>
-            </div>
-            
-            <div id="algoResult" class="algo-result" style="display:none;"></div>
+        <div class="algorithm-section">
+          <div class="section-header">
+            <span class="card-icon">🧠</span>
+            <span class="card-title">Thuật Toán Học Tăng Cường</span>
+          </div>
+          
+          <div class="algorithm-buttons">
+            <button class="btn-algorithm" onclick="runAlgorithm('MC')">Monte Carlo</button>
+            <button class="btn-algorithm" onclick="runAlgorithm('Q-learning')">Q-Learning</button>
+            <button class="btn-algorithm" onclick="runAlgorithm('A2C')">A2C</button>
+            <button class="btn-algorithm" onclick="runAStar()">A*</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-            <canvas id="trajectory" width="300" height="240" style="border:1px solid #ccc; margin-top:10px;"></canvas>
-        </div>
+  <!-- HÀNG 2: Reward (trái) + Thống kê hiệu suất (phải) -->
+  <div class="row">
+    <div class="card stats-card">
+      <div class="card-header">
+        <span class="card-icon">📈</span>
+        <span class="card-title">Reward theo Step</span>
+      </div>
+      <canvas id="rewardChart" width="300" height="240"></canvas>
+    </div>
 
-        <div class="card stats-card">
-            <div class="card-header">
-                <span class="card-icon">📈</span>
-                <span class="card-title">Reward theo Step</span>
-            </div>
-            <canvas id="rewardChart" width="300" height="240"></canvas>
-        </div>
-    </div>
+    <div class="card stats-card">
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <span class="card-title">Thống Kê Hiệu Suất</span>
+      </div>
+      
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">THUẬT TOÁN</div>
+          <div class="stat-value" id="current-algorithm">-</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">REWARD</div>
+          <div class="stat-value" id="current-reward">-</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">STEP</div>
+          <div class="stat-value" id="current-steps">-</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">WAYPOINTS</div>
+          <div class="stat-value" id="current-waypoints">-</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">THỜI GIAN</div>
+          <div class="stat-value" id="current-time">-</div>
+        </div>
+      </div>
+      
+      <div id="algoResult" class="algo-result" style="display:none;"></div>
+
+      <canvas id="trajectory" width="300" height="240" style="border:1px solid #ccc; margin-top:10px;"></canvas>
+    </div>
+  </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -145,291 +170,291 @@ let currentAlgoData = { rewards: [], totalReward: 0 }; // Biến mới để lư
 // ---------------- Chart ----------------
 const ctx = document.getElementById('rewardChart').getContext('2d');
 const rewardChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels: [], datasets: [] },
-    options: {
-        responsive:true,
-        plugins:{ title:{ display:true, text:'Reward theo Step' } },
-        scales:{ x:{ title:{ display:true, text:'Step' } }, y:{ title:{ display:true, text:'Reward' } } }
-    }
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: {
+        responsive:true,
+        plugins:{ title:{ display:true, text:'Reward theo Step' } },
+        scales:{ x:{ title:{ display:true, text:'Step' } }, y:{ title:{ display:true, text:'Reward' } } }
+    }
 });
 
 function randomColor(alpha=1){
-    const r=Math.floor(Math.random()*255), g=Math.floor(Math.random()*255), b=Math.floor(Math.random()*255);
-    return `rgba(${r},${g},${b},${alpha})`;
+    const r=Math.floor(Math.random()*255), g=Math.floor(Math.random()*255), b=Math.floor(Math.random()*255);
+    return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function updateChart() {
-    rewardChart.data.datasets = [];
-    let maxSteps = 0;
-    
-    for (const algo in allAlgoData) {
-        if (allAlgoData[algo].rewards.length > maxSteps) {
-            maxSteps = allAlgoData[algo].rewards.length;
-        }
-    }
-    rewardChart.data.labels = Array.from({length: maxSteps}, (_, i) => i + 1);
+    rewardChart.data.datasets = [];
+    let maxSteps = 0;
+    
+    for (const algo in allAlgoData) {
+        if (allAlgoData[algo].rewards.length > maxSteps) {
+            maxSteps = allAlgoData[algo].rewards.length;
+        }
+    }
+    rewardChart.data.labels = Array.from({length: maxSteps}, (_, i) => i + 1);
 
-    for (const algo in allAlgoData) {
-        rewardChart.data.datasets.push({
-            label: algo,
-            data: allAlgoData[algo].rewards,
-            borderColor: allAlgoData[algo].color,
-            backgroundColor: allAlgoData[algo].color.replace('rgb', 'rgba').replace(')', ', 0.2)'),
-            fill: false,
-            tension: 0.3,
-            pointRadius: 0
-        });
-    }
-    rewardChart.update();
+    for (const algo in allAlgoData) {
+        rewardChart.data.datasets.push({
+            label: algo,
+            data: allAlgoData[algo].rewards,
+            borderColor: allAlgoData[algo].color,
+            backgroundColor: allAlgoData[algo].color.replace('rgb', 'rgba').replace(')', ', 0.2)'),
+            fill: false,
+            tension: 0.3,
+            pointRadius: 0
+        });
+    }
+    rewardChart.update();
 }
 
 // ---------------- Grid & Robot ----------------
 function drawGridOnce(){
-    let grid=document.getElementById("grid");
-    grid.style.gridTemplateColumns=`repeat(${gridSizeX},35px)`;
-    grid.innerHTML="";
-    for(let y=0;y<gridSizeY;y++){
-        for(let x=0;x<gridSizeX;x++){
-            let cell=document.createElement("div");
-            cell.classList.add("cell");
-            cell.dataset.x=x; cell.dataset.y=y;
-            if(obstacles.some(o=>o[0]===x&&o[1]===y)) cell.classList.add("obstacle");
-            if(waypoints.some(w=>w[0]===x&&w[1]===y && !visitedWaypoints.some(vw=>vw[0]===w[0] && vw[1]===w[1]))) cell.classList.add("waypoint");
-            if(x===goal[0]&&y===goal[1]) cell.classList.add("goal");
-            if(x===robotPos[0]&&y===robotPos[1]) { cell.classList.add("robot"); cell.innerHTML="🤖"; }
-            grid.appendChild(cell);
-        }
-    }
+    let grid=document.getElementById("grid");
+    grid.style.gridTemplateColumns=`repeat(${gridSizeX},35px)`;
+    grid.innerHTML="";
+    for(let y=0;y<gridSizeY;y++){
+        for(let x=0;x<gridSizeX;x++){
+            let cell=document.createElement("div");
+            cell.classList.add("cell");
+            cell.dataset.x=x; cell.dataset.y=y;
+            if(obstacles.some(o=>o[0]===x&&o[1]===y)) cell.classList.add("obstacle");
+            if(waypoints.some(w=>w[0]===x&&w[1]===y && !visitedWaypoints.some(vw=>vw[0]===w[0] && vw[1]===w[1]))) cell.classList.add("waypoint");
+            if(x===goal[0]&&y===goal[1]) cell.classList.add("goal");
+            if(x===robotPos[0]&&y===robotPos[1]) { cell.classList.add("robot"); cell.innerHTML="🤖"; }
+            grid.appendChild(cell);
+        }
+    }
 }
 
 function updateRobot(prevPos, newPos){
-    let grid=document.getElementById("grid");
-    let oldCell=grid.querySelector(`.cell[data-x='${prevPos[0]}'][data-y='${prevPos[1]}']`);
-    if(oldCell){ oldCell.classList.remove("robot"); oldCell.innerHTML=""; }
-    let newCell=grid.querySelector(`.cell[data-x='${newPos[0]}'][data-y='${newPos[1]}']`);
-    if(newCell){ newCell.classList.add("robot"); newCell.innerHTML="🤖"; }
-    trajectoryPoints.push([...newPos]);
+    let grid=document.getElementById("grid");
+    let oldCell=grid.querySelector(`.cell[data-x='${prevPos[0]}'][data-y='${prevPos[1]}']`);
+    if(oldCell){ oldCell.classList.remove("robot"); oldCell.innerHTML=""; }
+    let newCell=grid.querySelector(`.cell[data-x='${newPos[0]}'][data-y='${newPos[1]}']`);
+    if(newCell){ newCell.classList.add("robot"); newCell.innerHTML="🤖"; }
+    trajectoryPoints.push([...newPos]);
 
-    if(newPos[0]===goal[0] && newPos[1]===goal[1]){
-        endTime = performance.now();
-        let elapsed = ((endTime - startTime)/1000).toFixed(2);
-        document.getElementById("current-time").innerText = elapsed + " s";
-        drawTrajectory();
-    }
+    if(newPos[0]===goal[0] && newPos[1]===goal[1]){
+        endTime = performance.now();
+        let elapsed = ((endTime - startTime)/1000).toFixed(2);
+        document.getElementById("current-time").innerText = elapsed + " s";
+        drawTrajectory();
+    }
 
-    waypoints.forEach(w=>{
-        if(w[0]===newPos[0] && w[1]===newPos[1]){
-            newCell.classList.remove("waypoint"); newCell.classList.add("visited"); newCell.innerHTML="🤖";
-            if(!visitedWaypoints.some(vw=>vw[0]===w[0] && vw[1]===w[1])) visitedWaypoints.push([w[0],w[1]]);
-        }
-    });
+    waypoints.forEach(w=>{
+        if(w[0]===newPos[0] && w[1]===newPos[1]){
+            newCell.classList.remove("waypoint"); newCell.classList.add("visited"); newCell.innerHTML="🤖";
+            if(!visitedWaypoints.some(vw=>vw[0]===w[0] && vw[1]===w[1])) visitedWaypoints.push([w[0],w[1]]);
+        }
+    });
 }
 
 // ---------------- Manual & Debug ----------------
 async function manualMove(dir){
-    if(!debugMode) return;
-    let prevPos = [...robotPos];
-    let resp = await fetch("/step",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({action_name:dir})
-    });
-    let data=await resp.json();
-    if(!data.error){
-        robotPos = data.state;
-        visitedWaypoints = data.visited_waypoints || [];
-        updateRobot(prevPos, robotPos);
-    }
+    if(!debugMode) return;
+    let prevPos = [...robotPos];
+    let resp = await fetch("/step",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action_name:dir})
+    });
+    let data=await resp.json();
+    if(!data.error){
+        robotPos = data.state;
+        visitedWaypoints = data.visited_waypoints || [];
+        updateRobot(prevPos, robotPos);
+    }
 }
 
 function toggleDebug(){
-    debugMode = !debugMode;
-    document.getElementById("manualControls").style.display = debugMode?"block":"none";
+    debugMode = !debugMode;
+    document.getElementById("manualControls").style.display = debugMode?"block":"none";
 }
 
 // ---------------- Auto Move ----------------
 async function autoStep(){
-    let prevPos=[...robotPos];
-    let resp = await fetch("/state");
-    let data = await resp.json();
-    robotPos = data.state;
-    visitedWaypoints = data.visited_waypoints || [];
-    updateRobot(prevPos, robotPos);
+    let prevPos=[...robotPos];
+    let resp = await fetch("/state");
+    let data = await resp.json();
+    robotPos = data.state;
+    visitedWaypoints = data.visited_waypoints || [];
+    updateRobot(prevPos, robotPos);
 }
 
 function startAutoMove(){
-    if(autoMoving) return;
-    autoMoving = true; algoMoving=false;
-    startTime = performance.now();
-    trajectoryPoints = [[...robotPos]];
-    intervalId = setInterval(autoStep, 300);
-    document.getElementById("msg").innerText = "Auto move bắt đầu";
+    if(autoMoving) return;
+    autoMoving = true; algoMoving=false;
+    startTime = performance.now();
+    trajectoryPoints = [[...robotPos]];
+    intervalId = setInterval(autoStep, 300);
+    document.getElementById("msg").innerText = "Auto move bắt đầu";
 }
 
 function stopAll(){
-    autoMoving=false; algoMoving=false; currentAlgo=null;
-    if(intervalId) clearInterval(intervalId);
-    intervalId=null;
-    document.getElementById("msg").innerText="Đã dừng robot";
-    document.getElementById("algoResult").style.display = "none";
+    autoMoving=false; algoMoving=false; currentAlgo=null;
+    if(intervalId) clearInterval(intervalId);
+    intervalId=null;
+    document.getElementById("msg").innerText="Đã dừng robot";
+    document.getElementById("algoResult").style.display = "none";
 }
 
 // ---------------- Reset ----------------
 async function resetGrid(){
-    stopAll();
-    let resp = await fetch("/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
-    let data = await resp.json();
-    robotPos=data.state; goal=data.map.goal; obstacles=data.map.obstacles; waypoints=data.map.waypoints||[];
-    visitedWaypoints=[]; gridSizeX=data.map.width; gridSizeY=data.map.height;
-    drawGridOnce(); updateRobot([0,0], robotPos);
-    document.getElementById("msg").innerText="Môi trường đã được reset";
-    document.getElementById("current-time").innerText="-";
-    trajectoryPoints=[]; clearTrajectory();
+    stopAll();
+    let resp = await fetch("/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    let data = await resp.json();
+    robotPos=data.state; goal=data.map.goal; obstacles=data.map.obstacles; waypoints=data.map.waypoints||[];
+    visitedWaypoints=[]; gridSizeX=data.map.width; gridSizeY=data.map.height;
+    drawGridOnce(); updateRobot([0,0], robotPos);
+    document.getElementById("msg").innerText="Môi trường đã được reset";
+    document.getElementById("current-time").innerText="-";
+    trajectoryPoints=[]; clearTrajectory();
 }
 
 // ---------------- Run RL Algorithms step-by-step ----------------
 async function runAlgorithm(algo){
-    stopAll();
-    currentAlgo = algo;
-    allAlgoData[algo] = { rewards: [], color: randomColor() };
-    let totalReward = 0;
-    let steps = 0;
-    
-    const resultDiv = document.getElementById("algoResult");
-    resultDiv.style.display = "block";
-    resultDiv.innerHTML = `<div class="loading"></div> Đang chạy thuật toán ${algo}...`;
+    stopAll();
+    currentAlgo = algo;
+    allAlgoData[algo] = { rewards: [], color: randomColor() };
+    let totalReward = 0;
+    let steps = 0;
+    
+    const resultDiv = document.getElementById("algoResult");
+    resultDiv.style.display = "block";
+    resultDiv.innerHTML = `<div class="loading"></div> Đang chạy thuật toán ${algo}...`;
 
-    // Reset trạng thái trước khi chạy
-    await resetGrid();
-    
-    // Bắt đầu vòng lặp từng bước
-    intervalId = setInterval(async () => {
-        try {
-            let prevPos = [...robotPos];
-            const resp = await fetch("/step_algorithm", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ algorithm: algo })
-            });
-            const data = await resp.json();
+    // Reset trạng thái trước khi chạy
+    await resetGrid();
+    
+    // Bắt đầu vòng lặp từng bước
+    intervalId = setInterval(async () => {
+        try {
+            let prevPos = [...robotPos];
+            const resp = await fetch("/step_algorithm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ algorithm: algo })
+            });
+            const data = await resp.json();
 
-            if (data.error) {
-                resultDiv.innerHTML = `❌ Lỗi: ${data.error}`;
-                stopAll();
-                return;
-            }
+            if (data.error) {
+                resultDiv.innerHTML = `❌ Lỗi: ${data.error}`;
+                stopAll();
+                return;
+            }
 
-            robotPos = data.state;
-            visitedWaypoints = data.visited_waypoints || [];
-            updateRobot(prevPos, robotPos);
-            
-            totalReward += data.reward;
-            steps = data.steps;
-            allAlgoData[algo].rewards.push(totalReward);
-            
-            updateStats(
-                algo,
-                totalReward.toFixed(1),
-                steps,
-                `${visitedWaypoints.length}/${waypoints.length}`
-            );
+            robotPos = data.state;
+            visitedWaypoints = data.visited_waypoints || [];
+            updateRobot(prevPos, robotPos);
+            
+            totalReward += data.reward;
+            steps = data.steps;
+            allAlgoData[algo].rewards.push(totalReward);
+            
+            updateStats(
+                algo,
+                totalReward.toFixed(1),
+                steps,
+                `${visitedWaypoints.length}/${waypoints.length}`
+            );
 
-            if (data.done) {
-                resultDiv.innerHTML = `
-                    ✅ <strong>${algo}</strong><br>
-                    🎯 Reward: ${totalReward.toFixed(1)}<br>
-                    👣 Steps: ${steps}<br>
-                    📍 Waypoints: ${visitedWaypoints.length}/${waypoints.length}<br>
-                    🏆 <strong>Robot đã đến đích!</strong>
-                `;
-                stopAll();
-            } else {
-                resultDiv.innerHTML = `<div class="loading"></div> Đang chạy thuật toán ${algo}...`;
-            }
+            if (data.done) {
+                resultDiv.innerHTML = `
+                    ✅ <strong>${algo}</strong><br>
+                    🎯 Reward: ${totalReward.toFixed(1)}<br>
+                    👣 Steps: ${steps}<br>
+                    📍 Waypoints: ${visitedWaypoints.length}/${waypoints.length}<br>
+                    🏆 <strong>Robot đã đến đích!</strong>
+                `;
+                stopAll();
+            } else {
+                resultDiv.innerHTML = `<div class="loading"></div> Đang chạy thuật toán ${algo}...`;
+            }
 
-            updateChart();
-        } catch (e) {
-            console.error(e);
-            resultDiv.innerHTML = "❌ Có lỗi xảy ra khi chạy thuật toán";
-            stopAll();
-        }
-    }, 200); // Tốc độ di chuyển: 200ms mỗi bước
+            updateChart();
+        } catch (e) {
+            console.error(e);
+            resultDiv.innerHTML = "❌ Có lỗi xảy ra khi chạy thuật toán";
+            stopAll();
+        }
+    }, 200); // Tốc độ di chuyển: 200ms mỗi bước
 }
 
 // ---------------- Run A* (unchanged, vẫn hoạt động tốt) ----------------
 async function runAStar(){
-    stopAll(); currentAlgo="A*";
-    const resultDiv = document.getElementById("algoResult");
-    resultDiv.style.display = "block";
-    resultDiv.innerHTML = `<div class="loading"></div> Đang chạy thuật toán A*...`;
+    stopAll(); currentAlgo="A*";
+    const resultDiv = document.getElementById("algoResult");
+    resultDiv.style.display = "block";
+    resultDiv.innerHTML = `<div class="loading"></div> Đang chạy thuật toán A*...`;
 
-    try{
-        let prevPos = [...robotPos];
-        const resp = await fetch("/run_a_star",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
-        const data = await resp.json();
-        if(data.error){ resultDiv.innerHTML = `❌ Lỗi: ${data.error}`; return; }
-        
-        allAlgoData[data.algorithm] = { rewards: data.rewards_over_time, color: randomColor() };
+    try{
+        let prevPos = [...robotPos];
+        const resp = await fetch("/run_a_star",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
+        const data = await resp.json();
+        if(data.error){ resultDiv.innerHTML = `❌ Lỗi: ${data.error}`; return; }
+        
+        allAlgoData[data.algorithm] = { rewards: data.rewards_over_time, color: randomColor() };
 
-        let path = data.path;
-        for(let i=1;i<path.length;i++){
-            await new Promise(r=>setTimeout(r,200));
-            prevPos = [...robotPos];
-            robotPos = path[i];
-            visitedWaypoints = data.visited_waypoints||[];
-            updateRobot(prevPos, robotPos);
-        }
+        let path = data.path;
+        for(let i=1;i<path.length;i++){
+            await new Promise(r=>setTimeout(r,200));
+            prevPos = [...robotPos];
+            robotPos = path[i];
+            visitedWaypoints = data.visited_waypoints||[];
+            updateRobot(prevPos, robotPos);
+        }
 
-        updateStats(
-            data.algorithm,
-            data.reward.toFixed(1),
-            data.steps,
-            `${data.visited_waypoints.length}/${waypoints.length}`
-        );
+        updateStats(
+            data.algorithm,
+            data.reward.toFixed(1),
+            data.steps,
+            `${data.visited_waypoints.length}/${waypoints.length}`
+        );
 
-        resultDiv.innerHTML = `
-            ✅ <strong>${data.algorithm}</strong><br>
-            🎯 Reward: ${data.reward.toFixed(1)}<br>
-            👣 Steps: ${data.steps}<br>
-            📍 Waypoints: ${data.visited_waypoints.length}/${waypoints.length}<br>
-            ${data.done ? "🏆 <strong>Robot đã đến đích!</strong>" : ""}
-        `;
+        resultDiv.innerHTML = `
+            ✅ <strong>${data.algorithm}</strong><br>
+            🎯 Reward: ${data.reward.toFixed(1)}<br>
+            👣 Steps: ${data.steps}<br>
+            📍 Waypoints: ${data.visited_waypoints.length}/${waypoints.length}<br>
+            ${data.done ? "🏆 <strong>Robot đã đến đích!</strong>" : ""}
+        `;
 
-        updateChart();
-    } catch(e){
-        console.error(e); 
-        resultDiv.innerHTML = "❌ Có lỗi xảy ra khi chạy A*";
-    }
+        updateChart();
+    } catch(e){
+        console.error(e); 
+        resultDiv.innerHTML = "❌ Có lỗi xảy ra khi chạy A*";
+    }
 }
 
 // ---------------- Draw & Clear Trajectory ----------------
 function drawTrajectory(){
-    let canvas=document.getElementById("trajectory");
-    let ctx=canvas.getContext("2d");
-    clearTrajectory();
-    if(trajectoryPoints.length<2) return;
-    ctx.beginPath();
-    let scaleX=canvas.width/gridSizeX, scaleY=canvas.height/gridSizeY;
-    ctx.moveTo(trajectoryPoints[0][0]*scaleX+scaleX/2, trajectoryPoints[0][1]*scaleY+scaleY/2);
-    for(let i=1;i<trajectoryPoints.length;i++){
-        ctx.lineTo(trajectoryPoints[i][0]*scaleX+scaleX/2, trajectoryPoints[i][1]*scaleY+scaleY/2);
-    }
-    ctx.strokeStyle="red"; ctx.lineWidth=2; ctx.stroke();
+    let canvas=document.getElementById("trajectory");
+    let ctx=canvas.getContext("2d");
+    clearTrajectory();
+    if(trajectoryPoints.length<2) return;
+    ctx.beginPath();
+    let scaleX=canvas.width/gridSizeX, scaleY=canvas.height/gridSizeY;
+    ctx.moveTo(trajectoryPoints[0][0]*scaleX+scaleX/2, trajectoryPoints[0][1]*scaleY+scaleY/2);
+    for(let i=1;i<trajectoryPoints.length;i++){
+        ctx.lineTo(trajectoryPoints[i][0]*scaleX+scaleX/2, trajectoryPoints[i][1]*scaleY+scaleY/2);
+    }
+    ctx.strokeStyle="red"; ctx.lineWidth=2; ctx.stroke();
 }
 
 function clearTrajectory(){
-    let canvas=document.getElementById("trajectory");
-    let ctx=canvas.getContext("2d");
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    let canvas=document.getElementById("trajectory");
+    let ctx=canvas.getContext("2d");
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 
 // ---------------- Update Stats ----------------
 function updateStats(algo, reward, steps, wp){
-    document.getElementById("current-algorithm").innerText = algo;
-    document.getElementById("current-reward").innerText = reward;
-    document.getElementById("current-steps").innerText = steps;
-    document.getElementById("current-waypoints").innerText = wp;
+    document.getElementById("current-algorithm").innerText = algo;
+    document.getElementById("current-reward").innerText = reward;
+    document.getElementById("current-steps").innerText = steps;
+    document.getElementById("current-waypoints").innerText = wp;
 }
 
 // ---------------- Khởi tạo ----------------
