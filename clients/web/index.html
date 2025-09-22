@@ -179,6 +179,16 @@ function updateRobot(prevPos, newPos){
     });
 }
 
+// ------------- Auto Move (step by step) ----------------
+async function autoStep(){
+    let prevPos=[...robotPos];
+    let resp=await fetch("/state");
+    let data=await resp.json();
+    robotPos=data.state; 
+    visitedWaypoints=data.visited_waypoints||[];
+    updateRobot(prevPos, robotPos);
+}
+
 // ------------- Update Status Message ----------------
 function updateStatus(message, type = 'info') {
     const msgElement = document.getElementById("msg");
@@ -262,7 +272,7 @@ function stopAll(){
 // ------------- Reset Grid ----------------
 async function resetGrid(){
     stopAll();
-    let resp=await fetch("http://127.0.0.1:8000/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    let resp=await fetch("/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
     let data=await resp.json();
     robotPos=data.state; goal=data.map.goal; obstacles=data.map.obstacles; waypoints=data.map.waypoints||[];
     visitedWaypoints=[];
@@ -278,7 +288,7 @@ async function resetGrid(){
 async function manualMove(dir){
     if(!debugMode) return;
     let prevPos=[...robotPos];
-    let resp=await fetch("http://127.0.0.1:8000/step",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action_name:dir})});
+    let resp=await fetch("/step",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action_name:dir})});
     let data=await resp.json();
     if(!data.error){
         robotPos=data.state; visitedWaypoints=data.visited_waypoints||[];
@@ -304,7 +314,7 @@ async function runAlgorithm(algo){
     intervalId=setInterval(async()=>{
         if(!algoMoving || !currentAlgo){ clearInterval(intervalId); return; }
         try{
-            const resp=await fetch("http://127.0.0.1:8000/run_algorithm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({algorithm:currentAlgo})});
+            const resp=await fetch("/run_algorithm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({algorithm:currentAlgo})});
             const data=await resp.json();
             if(data.error){ 
                 updateStatus(`Lỗi: ${data.error}`, "error");
@@ -321,7 +331,7 @@ async function runAlgorithm(algo){
             if(algo==="Q-learning") saveApi = "/save_qlearning";
             else if(algo==="MC") saveApi = "/save_mc";
             else if(algo==="A2C") saveApi = "/save_a2c";
-            if(saveApi) await fetch("http://127.0.0.1:8000"+saveApi, {method:"POST"});
+            if(saveApi) await fetch("/"+saveApi, {method:"POST"});
 
             // Update stats
             updateStats(
@@ -364,7 +374,7 @@ async function runAStar(){
     resultDiv.innerHTML = `<div class="loading"></div> Đang chạy thuật toán A*...`;
     
     try{
-        const resp = await fetch("http://127.0.0.1:8000/run_a_star",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
+        const resp = await fetch("/run_a_star",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
         const data = await resp.json();
         if(data.error){ 
             updateStatus(`Lỗi: ${data.error}`, "error");
