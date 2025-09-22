@@ -351,6 +351,45 @@ def run_a_star(req: AStarRequest):
         }
 
 # ---------------------------
+# Auto Run Endpoint
+# ---------------------------
+@app.post("/auto_run")
+def auto_run():
+    with _env_lock:
+        start = env.get_state()
+        # Tìm đường đi từ start -> waypoint -> goal
+        path = plan_path_through_waypoints(start, env.waypoints, env.goal,
+                                           env.obstacles, env.width, env.height)
+        if not path:
+            return {"error": "Không tìm thấy đường đi qua tất cả waypoint"}
+
+        # Reset lại env để chạy từ đầu
+        env.reset()
+        full_path = [env.state]
+        total_reward = 0
+        info_list = []
+
+        for node in path[1:]:
+            s, r, done, info = env.step_to(node)
+            total_reward += r
+            full_path.append(s)
+            info_list.append(info)
+
+        done = (env.state == env.goal and len(env.visited_waypoints) == len(env.waypoints))
+
+        return {
+            "algorithm": "auto_run (A*)",
+            "path": full_path,
+            "state": env.get_state(),
+            "reward": total_reward,
+            "done": done,
+            "steps": env.steps,
+            "visited_waypoints": list(env.visited_waypoints),
+            "info": info_list,
+            "ascii": env.render_ascii()
+        }
+    
+# ---------------------------
 # Save Endpoints
 # ---------------------------
 @app.post("/save_qlearning")
