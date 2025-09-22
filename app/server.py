@@ -371,6 +371,11 @@ def save_a2c():
     torch.save(a2c_model.state_dict(), os.path.join(models_dir, 'a2c_model.pth'))
     return {"status": "A2C model saved"}
 
+@app.get("/")
+def root():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/web/index.html")
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.server:app", host="0.0.0.0", port=8000, reload=True)
