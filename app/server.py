@@ -375,7 +375,8 @@ def save_a2c():
 # ---------------------------
 @app.get("/")
 def root():
-    return {"message":"RL Robot API running. Open /web/index.html to view grid."}
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/web/index.html")
 
 if __name__ == "__main__":
     import uvicorn
