@@ -3,13 +3,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Tuple, Optional
 from threading import Lock
-import os, pickle, torch, numpy as np
+import os, pickle, torch, numpy as np, time
 import heapq
 from itertools import permutations
+from collections import defaultdict
+import torch.nn.functional as F
 
 from app.robot_env import GridWorldEnv
-from clients.train_mc import Q as mc_Q
-from clients.train_qlearning import Q as ql_Q
 from clients.train_a2c import ActorCritic
 
 # ---------------------------
@@ -27,7 +27,8 @@ start = (0,0)
 goal = (9,7)
 waypoints = [(3,2),(6,5)]
 obstacles = [(1,1),(2,3),(4,4),(5,1),(7,6)]
-env = GridWorldEnv(width=width, height=height, start=start, goal=goal, obstacles=obstacles, waypoints=waypoints)
+# CẬP NHẬT: Đặt giá trị mặc định cho max_steps
+env = GridWorldEnv(width, height, start, goal, obstacles, waypoints, max_steps=500)
 
 # ---------------------------
 # Models dir
@@ -41,9 +42,12 @@ os.makedirs(models_dir, exist_ok=True)
 mc_qfile = os.path.join(models_dir, "mc_qtable.pkl")
 if os.path.exists(mc_qfile):
     with open(mc_qfile, "rb") as f:
-        mc_Q = pickle.load(f)
+        loaded_mc_Q = pickle.load(f)
+    # CẬP NHẬT: Khôi phục defaultdict và cập nhật dữ liệu
+    mc_Q = defaultdict(lambda: {a: 0.0 for a in ['up', 'right', 'down', 'left']})
+    mc_Q.update(loaded_mc_Q)
 else:
-    mc_Q = {}
+    mc_Q = defaultdict(lambda: {a: 0.0 for a in ['up', 'right', 'down', 'left']})
 
 # ---------------------------
 # Load Q-learning
@@ -51,9 +55,12 @@ else:
 ql_qfile = os.path.join(models_dir, "qlearning_qtable.pkl")
 if os.path.exists(ql_qfile):
     with open(ql_qfile, "rb") as f:
-        ql_Q = pickle.load(f)
+        loaded_ql_Q = pickle.load(f)
+    # CẬP NHẬT: Khôi phục defaultdict và cập nhật dữ liệu
+    ql_Q = defaultdict(lambda: {a: 0.0 for a in ['up', 'right', 'down', 'left']})
+    ql_Q.update(loaded_ql_Q)
 else:
-    ql_Q = {}
+    ql_Q = defaultdict(lambda: {a: 0.0 for a in ['up', 'right', 'down', 'left']})
 
 # ---------------------------
 # Load A2C
@@ -62,7 +69,7 @@ a2c_model_file = os.path.join(models_dir, "a2c_model.pth")
 in_channels = 5
 height, width = env.height, env.width
 n_actions = len(env.ACTIONS)
-a2c_model = ActorCritic(in_channels=in_channels, height=height, width=width, n_actions=n_actions)
+a2c_model = ActorCritic(in_channels, height, width, n_actions)
 if os.path.exists(a2c_model_file):
     try:
         a2c_model.load_state_dict(torch.load(a2c_model_file))
@@ -72,11 +79,10 @@ if os.path.exists(a2c_model_file):
         print("⚠️ Không load được A2C checkpoint. Sẽ dùng model mới.")
 
 # ---------------------------
-# Action list & RL params
+# RL params
 # ---------------------------
 actions = ['up', 'right', 'down', 'left']
-alpha = 0.1
-gamma = 0.99
+alpha, gamma = 0.1, 0.99
 epsilon = 1.0
 
 # ---------------------------
@@ -102,7 +108,7 @@ class AStarRequest(BaseModel):
     goal: Optional[Tuple[int,int]] = None
 
 # ---------------------------
-# A* Search function
+# A* functions
 # ---------------------------
 def a_star(start, goal, obstacles, width, height):
     open_set = []
@@ -153,7 +159,7 @@ def plan_path_through_waypoints(start, waypoints, goal, obstacles, width, height
 def step_to_rl(self, target):
     self.state = target
     self.steps += 1
-    reward = -0.1  # bước di chuyển bình thường
+    reward = -0.1
     done = False
     if target in self.waypoints and target not in self.visited_waypoints:
         self.visited_waypoints.add(target)
@@ -167,7 +173,7 @@ def step_to_rl(self, target):
 GridWorldEnv.step_to = step_to_rl
 
 # ---------------------------
-# Endpoints
+# API Endpoints
 # ---------------------------
 @app.get("/map")
 def get_map():
@@ -184,9 +190,9 @@ def reset(req: ResetRequest):
         g = req.goal or env.goal
         wp = req.waypoints if req.waypoints is not None else list(env.waypoints)
         ob = req.obstacles if req.obstacles is not None else list(env.obstacles)
-        ms = req.max_steps if req.max_steps is not None else env.max_steps
+        ms = req.max_steps if req.max_steps is not None else 500
 
-        env = GridWorldEnv(width=w, height=h, start=s, goal=g, obstacles=ob, waypoints=wp, max_steps=ms)
+        env = GridWorldEnv(w, h, s, g, ob, wp, max_steps=ms)
         state = env.reset(max_steps=ms)
         return {"state": state, "map": env.get_map(), "ascii": env.render_ascii()}
 
@@ -209,7 +215,7 @@ def step(inp: ActionInput):
             elif inp.action is not None:
                 s,r,done,info = env.step(inp.action)
             else:
-                return {"error":"No action provided"}
+                return {"error": "No action provided"}
             return {
                 "state": s,
                 "reward": r,
@@ -223,10 +229,10 @@ def step(inp: ActionInput):
             return {"error": str(e)}
 
 # ---------------------------
-# Run RL Algorithm
+# Run RL Algorithm step by step
 # ---------------------------
-@app.post("/run_algorithm")
-def run_algorithm(req: AlgorithmRequest):
+@app.post("/step_algorithm")
+def step_algorithm(req: AlgorithmRequest):
     global epsilon
     algo = req.algorithm
     with _env_lock:
@@ -240,104 +246,97 @@ def run_algorithm(req: AlgorithmRequest):
                 if wp in visited_set:
                     code |= (1 << i)
             return code
-
+        
         visited_code = encode_visited(env.waypoints, env.visited_waypoints)
+        full_state = (state_xy[0], state_xy[1], visited_code)
 
         if algo == "MC":
-            full_state = (state_xy[0], state_xy[1], visited_code)
-            if full_state in mc_Q and np.random.rand() > epsilon:
-                action = max(mc_Q[full_state], key=mc_Q[full_state].get)
+            if np.random.rand() > epsilon:
+                if full_state in mc_Q and any(mc_Q[full_state].values()):
+                     action_name = max(mc_Q[full_state], key=mc_Q[full_state].get)
+                else:
+                     action_name = np.random.choice(actions)
             else:
-                action = np.random.choice(actions)
-            action_idx = actions.index(action)
-            next_state, reward, done, _ = env.step(action_idx)
+                action_name = np.random.choice(actions)
+            action_idx = actions.index(action_name)
+            
+            next_state, r, done, _ = env.step(action_idx)
+            
+            # Update for MC after each step
+            # Đây là sự thay đổi lớn trong cách MC học, từ offline sang online, nhưng nó giúp mô phỏng từng bước
+            G = r + gamma * max(mc_Q[next_state].values())
+            mc_Q[full_state][action_name] += alpha * (G - mc_Q[full_state][action_name])
+            
+            reward = r
+            state_xy = next_state
+        
+        elif algo == "Q-learning":
+            if np.random.rand() < epsilon:
+                action_name = np.random.choice(actions)
+            else:
+                action_name = max(ql_Q[full_state], key=ql_Q[full_state].get)
+            
+            action_idx = actions.index(action_name)
+            
+            next_state, r, done, _ = env.step(action_idx)
+            
+            next_visited_code = encode_visited(env.waypoints, env.visited_waypoints)
+            next_state_tuple = (next_state[0], next_state[1], next_visited_code)
+            
+            ql_Q[full_state][action_name] += alpha * (
+                r + gamma * max(ql_Q[next_state_tuple].values()) - ql_Q[full_state][action_name]
+            )
+            
+            state_xy = next_state
+            reward = r
+            epsilon = max(0.1, epsilon * 0.995)
 
         elif algo == "A2C":
             state_tensor = env.build_grid_state().unsqueeze(0)
             a2c_model.eval()
             with torch.no_grad():
                 policy_logits, _ = a2c_model(state_tensor)
-                action_probs = torch.softmax(policy_logits, dim=-1)
-
-                remaining_waypoints = [wp for wp in env.waypoints if wp not in env.visited_waypoints]
-                preferred_actions = []
-                x, y = env.state
-                for idx, (dx, dy) in enumerate(env.ACTIONS):
-                    nx, ny = x + dx, y + dy
-                    if 0 <= nx < env.width and 0 <= ny < env.height and (nx, ny) not in env.obstacles:
-                        if (nx, ny) in remaining_waypoints:
-                            preferred_actions.append(idx)
-
-                if preferred_actions:
-                    preferred_probs = action_probs[0, preferred_actions]
-                    preferred_probs /= preferred_probs.sum()
-                    action_idx = torch.multinomial(preferred_probs, 1).item()
-                    action_idx = preferred_actions[action_idx]
-                else:
-                    action_idx = torch.multinomial(action_probs, 1).item()
-
-            next_state, reward, done, _ = env.step(action_idx)
-
-            try:
-                tmp = a2c_model_file + ".tmp"
-                torch.save(a2c_model.state_dict(), tmp)
-                os.replace(tmp, a2c_model_file)
-            except Exception as e:
-                print("Warning: failed to save A2C model:", repr(e))
-
-        elif algo=="Q-learning":
-            state_tuple = (state_xy[0], state_xy[1], visited_code)
-            if state_tuple not in ql_Q:
-                ql_Q[state_tuple] = {a: 0.0 for a in actions}
-
-            if np.random.rand() < epsilon:
-                action = np.random.choice(actions)
-            else:
-                action = max(ql_Q[state_tuple], key=ql_Q[state_tuple].get)
-
-            action_idx = actions.index(action)
-            next_state, reward, done, _ = env.step(action_idx)
-
-            next_visited_code = encode_visited(env.waypoints, env.visited_waypoints)
-            next_state_tuple = (next_state[0], next_state[1], next_visited_code)
-            if next_state_tuple not in ql_Q:
-                ql_Q[next_state_tuple] = {a: 0.0 for a in actions}
-
-            ql_Q[state_tuple][action] += alpha * (
-                reward + gamma * max(ql_Q[next_state_tuple].values()) - ql_Q[state_tuple][action]
-            )
-            epsilon = max(0.1, epsilon * 0.995)
-
-        else:
-            return {"error": "Thuật toán không hợp lệ"}
+                action_probs = F.softmax(policy_logits, dim=-1).squeeze(0)
+                action_idx = torch.multinomial(action_probs, 1).item()
+            
+            next_state, r, done, _ = env.step(action_idx)
+            state_xy = next_state
+            reward = r
 
         return {
-            "algorithm": algo,
-            "state": next_state,
+            "state": state_xy,
             "reward": reward,
+            "done": done or env.steps >= env.max_steps,
             "steps": env.steps,
-            "visited_waypoints": list(env.visited_waypoints),
-            "done": done
+            "visited_waypoints": list(env.visited_waypoints)
         }
 
 # ---------------------------
-# Run A* Algorithm (RL-style reward + waypoint bắt buộc)
+# Run A* Algorithm (unchanged)
 # ---------------------------
 @app.post("/run_a_star")
 def run_a_star(req: AStarRequest):
     with _env_lock:
+        start_time = time.time()
+        rewards_over_time = []
+        
         start = env.get_state()
-        path = plan_path_through_waypoints(start, env.waypoints, req.goal or env.goal, env.obstacles, env.width, env.height)
+        
+        path = plan_path_through_waypoints(start, env.waypoints, req.goal or env.goal,
+                                           env.obstacles, env.width, env.height)
         if not path:
             return {"error": "Không tìm thấy đường đi qua tất cả waypoint"}
-
+        
+        env.reset()
         total_reward = 0
-        info_list = []
         for node in path[1:]:
             s, r, done, info = env.step_to(node)
             total_reward += r
-            info_list.append(info)
+            rewards_over_time.append(total_reward)
+
         done = (env.state == env.goal and len(env.visited_waypoints) == len(env.waypoints))
+        elapsed_time = time.time() - start_time
+        
         return {
             "algorithm": "A*",
             "path": path,
@@ -346,49 +345,12 @@ def run_a_star(req: AStarRequest):
             "done": done,
             "steps": env.steps,
             "visited_waypoints": list(env.visited_waypoints),
-            "info": info_list,
-            "ascii": env.render_ascii()
+            "info": {},
+            "ascii": env.render_ascii(),
+            "elapsed_time": elapsed_time,
+            "rewards_over_time": rewards_over_time
         }
 
-# ---------------------------
-# Auto Run Endpoint
-# ---------------------------
-@app.post("/auto_run")
-def auto_run():
-    with _env_lock:
-        start = env.get_state()
-        # Tìm đường đi từ start -> waypoint -> goal
-        path = plan_path_through_waypoints(start, env.waypoints, env.goal,
-                                           env.obstacles, env.width, env.height)
-        if not path:
-            return {"error": "Không tìm thấy đường đi qua tất cả waypoint"}
-
-        # Reset lại env để chạy từ đầu
-        env.reset()
-        full_path = [env.state]
-        total_reward = 0
-        info_list = []
-
-        for node in path[1:]:
-            s, r, done, info = env.step_to(node)
-            total_reward += r
-            full_path.append(s)
-            info_list.append(info)
-
-        done = (env.state == env.goal and len(env.visited_waypoints) == len(env.waypoints))
-
-        return {
-            "algorithm": "auto_run (A*)",
-            "path": full_path,
-            "state": env.get_state(),
-            "reward": total_reward,
-            "done": done,
-            "steps": env.steps,
-            "visited_waypoints": list(env.visited_waypoints),
-            "info": info_list,
-            "ascii": env.render_ascii()
-        }
-    
 # ---------------------------
 # Save Endpoints
 # ---------------------------
@@ -408,14 +370,6 @@ def save_mc():
 def save_a2c():
     torch.save(a2c_model.state_dict(), os.path.join(models_dir, 'a2c_model.pth'))
     return {"status": "A2C model saved"}
-
-# ---------------------------
-# Root
-# ---------------------------
-@app.get("/")
-def root():
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/web/index.html")
 
 if __name__ == "__main__":
     import uvicorn
