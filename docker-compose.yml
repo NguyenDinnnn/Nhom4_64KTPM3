@@ -1,12 +1,16 @@
-version: "3.9"
+version: '3.8'
 
 services:
-  web:
-    build: .
+  deploy-frontend:
+    image: thanglele/rl-robot-api:latest
     container_name: rl-robot-api
     ports:
       - "8000:8000"
-    volumes:
-      - ./app:/app/app   # mount code để dev, container reload khi code thay đổi
-    environment:
-      - PYTHONUNBUFFERED=1
+    restart: always
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

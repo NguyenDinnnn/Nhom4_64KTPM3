@@ -23,7 +23,9 @@ if %errorlevel% neq 0 (
 )
 
 echo === Run container ===
-docker run -d --name %IMAGE_NAME% -p 8000:8000 %DOCKER_USER%/%IMAGE_NAME%:%TAG%
+@REM docker run -d --name %IMAGE_NAME% -p 8000:8000 %DOCKER_USER%/%IMAGE_NAME%:%TAG%
+
+docker compose -f docker-compose.yml up -d
 
 if %errorlevel% neq 0 (
     echo Run container failed!
@@ -32,3 +34,5 @@ if %errorlevel% neq 0 (
 
 echo === Done! Container is running at http://localhost:8000 ===
 endlocal
+
+pause
