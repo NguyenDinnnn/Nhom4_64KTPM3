@@ -19,12 +19,18 @@ class GridWorldEnv:
         self.steps = 0
 
         # Reward parameters
-        self.step_penalty = -1
-        self.wall_penalty = -5
+        # self.step_penalty = -1
+        # self.wall_penalty = -5
+        # self.obstacle_penalty = -10
+        # self.waypoint_reward = 20
+        # self.goal_reward = 50
+        # self.goal_before_waypoints_penalty = -5
+        self.step_penalty = -0.1
+        self.wall_penalty = -100
         self.obstacle_penalty = -10
-        self.waypoint_reward = 20
-        self.goal_reward = 50
-        self.goal_before_waypoints_penalty = -5
+        self.waypoint_reward = 30
+        self.goal_reward = 200
+        self.goal_before_waypoints_penalty = -50
 
     def reset(self, start=None, goal=None, obstacles=None, waypoints=None, max_steps=None):
         if start: self.start = start
